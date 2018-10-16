@@ -1,0 +1,431 @@
+---
+output: html_document
+---
+
+#### **To:** Museum Board of Directors 
+  
+#### **From:** Hanlin Wang 
+  
+#### **Date:** `r format(Sys.time(), '%B %d, %Y')`   
+  
+#### **RE:** Exhibition Art Piece Selection 
+
+***
+
+```{r echo = FALSE}
+# Course: BUAN 5260
+# Title: Final Project--Artie's Dream Part 1
+# Purpose: Choose arts to exhibit under different scenarios
+# Date: June 3, 2018
+# Author: Hanlin Wang
+```
+
+```{r include = FALSE, warning = FALSE, message = FALSE}
+if(is.null(sessionInfo()$otherPkgs) == FALSE)lapply(
+  paste("package:", names(sessionInfo()$otherPkgs), sep=""), 
+  detach, character.only = TRUE, unload = TRUE)
+
+# Clear environment
+rm(list = ls(all = TRUE)) 
+
+# Load packages
+library(lpSolveAPI)
+library(knitr)
+```
+
+**Introduction**
+----------------------------------
+
+Artie Fophartie reached us and showed interest of sponsoring an exhibit. As a museum, we are glad to have the opportunity to support Mr Fophartie's dream of holding an exhibit of his own and at the same time, fulfill our responsibility to educate with and introduce to the citizens the fabulous art world. After communicating with Mr. Fophartie, I and Celeste McKenzie, came up with three proposals of exhibits meeting both Mr. Fophartie's requirements and Mrs. McKenzie's interest. In this memo, I'll introduce these three exhibition proposals for the board of directors to make a decision.
+
+```{r include = FALSE}
+# Load dataset
+dataset <- read.csv("5260_S18_Arties_Dream.csv",header = TRUE,sep=",",stringsAsFactors=FALSE)
+
+# import parameters
+n <- nrow(dataset)
+parameter <- rep(0,n)
+wmsculpture_index <- grep("wire mesh sculpture",dataset$Description)
+sculpture_index <- grep("sculpture",dataset$Description)
+sculpture_index <- sculpture_index[-wmsculpture_index]
+collage_index <- grep("collage",dataset$Description)
+cgd_index <- grep("computer",dataset$Description)
+watercolor_index <- grep("water",dataset$Description)
+oil_index <- grep("oil",dataset$Description)
+prp_index <- grep("photo-realistic",dataset$Description)
+cubist_index <- grep("cubist",dataset$Description)
+expressionist_index <- grep("expressionist",dataset$Description)
+drawing_index <- grep("pen-and-ink",dataset$Description)
+
+# Assign each art piece to the art form
+dataset$Art_form <- NA
+dataset$Art_form[wmsculpture_index] <- "Wire Mesh Sculpture"
+dataset$Art_form[sculpture_index] <- "Sculpture"
+dataset$Art_form[collage_index] <- "Collage"
+dataset$Art_form[cgd_index] <- "Computer-generated Drawing"
+dataset$Art_form[watercolor_index] <- "Watercolor Painting"
+dataset$Art_form[oil_index] <- "Oil Painting"
+dataset$Art_form[prp_index] <- "Photo-realistic Painting"
+dataset$Art_form[cubist_index] <- "Cubist Painting"
+dataset$Art_form[expressionist_index] <- "Expressionist Painting"
+dataset$Art_form[drawing_index] <- "Drawing"
+
+# Change column name for coding purpose
+colnames(dataset) <- c("Artist Piece","Artist","Piece","Description","Gender","Price in K","Art Form")
+```
+
+**Proposal 1: Maximize numbers of pieces to display under 4M budget**
+-------------------------------
+
+```{r include = FALSE}
+# Set up model
+proposal1 <- make.lp(0, n)
+
+# Set objective function
+set.objfn(proposal1, rep(1,n))
+lp.control(proposal1,"max")
+```
+```{r include = FALSE}
+# Set constraints
+## $4 million budget
+add.constraint(proposal1,as.vector(dataset$Price),"<=",4000)
+
+## only 1 collage
+parameter[collage_index] <- 1
+add.constraint(proposal1,parameter, "=",1)
+parameter <- rep(0,n)
+
+## both wire mesh sculpture and cgd or neither of them
+parameter[cgd_index] <- -1
+parameter[wmsculpture_index[1]] <- 1
+add.constraint(proposal1,parameter,"<=",0)
+parameter[wmsculpture_index[1]] <- 0
+parameter[wmsculpture_index[2]] <- 1
+add.constraint(proposal1,parameter,"<=",0)
+parameter[wmsculpture_index[2]] <- 0
+parameter[wmsculpture_index[3]] <- 1
+add.constraint(proposal1,parameter,"<=",0)
+parameter[wmsculpture_index] <- -1
+parameter[cgd_index] <- 0
+parameter[cgd_index[1]] <- 1
+add.constraint(proposal1,parameter,"<=",0)
+parameter[cgd_index[1]] <- 0
+parameter[cgd_index[2]] <- 1
+add.constraint(proposal1,parameter,"<=",0)
+parameter <- rep(0,n)
+
+## at least 1 prp
+parameter[prp_index] <- 1
+add.constraint(proposal1,parameter, ">=",1)
+parameter <- rep(0,n)
+
+## at least 1 cubist
+parameter[cubist_index] <- 1
+add.constraint(proposal1,parameter, ">=",1)
+parameter <- rep(0,n)
+
+## at least 1 expressionist
+parameter[expressionist_index] <- 1
+add.constraint(proposal1,parameter, ">=",1)
+parameter <- rep(0,n)
+
+## at least 1 watercolor
+parameter[watercolor_index] <- 1
+add.constraint(proposal1,parameter, ">=",1)
+parameter <- rep(0,n)
+
+## at least 1 oil
+parameter[oil_index] <- 1
+add.constraint(proposal1,parameter, ">=",1)
+parameter <- rep(-2,n)
+
+## paintings no more than twice of other art forms
+parameter[c(prp_index,cubist_index,expressionist_index,watercolor_index,oil_index)] <- 1
+add.constraint(proposal1,parameter, "<=",0)
+parameter <- rep(0,n)
+
+## All Artie's paintings included
+parameter[which(dataset$Artist == "Artie Fophartie")] <- 1
+add.constraint(proposal1,parameter, "=",length(which(dataset$Artist == "Artie Fophartie")))
+parameter <- rep(0,n)
+
+## Both Helen Row's paintings included
+parameter[which(dataset$Artist == "Helen Row")] <- 1
+add.constraint(proposal1,parameter, "=",length(which(dataset$Artist == "Helen Row")))
+parameter <- rep(0,n)
+
+## At least 1 from David Lyman
+parameter[which(dataset$Artist == "David Lyman")] <- 1
+add.constraint(proposal1,parameter, ">=",1)
+parameter <- rep(0,n)
+
+## At least 1 from Ziggy Stardust
+parameter[which(dataset$Artist == "Ziggy Stardust")] <- 1
+add.constraint(proposal1,parameter, ">=",1)
+parameter <- rep(0,n)
+
+## Same amount from David and Ziggy
+parameter[which(dataset$Artist == "David Lyman")] <- 1
+parameter[which(dataset$Artist == "Ziggy Stardust")] <- -1
+add.constraint(proposal1,parameter, "=",0)
+parameter <- rep(0,n)
+
+## No arts from Rick Rawls
+parameter[which(dataset$Artist == "Rick Rawls")] <- 1
+add.constraint(proposal1,parameter, "=",0)
+parameter <- rep(-1,n)
+
+## At least one female art every two male arts
+parameter[which(dataset$Gender == "F")] <- 2
+add.constraint(proposal1,parameter, ">=",-1)
+parameter <- rep(0,n)
+
+## Either or both "Aging Earth" and "Wasted Resources"
+parameter[which(dataset$`Artist Piece` == "NM: Age" | dataset$`Artist Piece` == "NM: Wst")] <- 1
+add.constraint(proposal1,parameter, ">=",1)
+parameter <- rep(0,n)
+
+## At least one from Bear Canton
+parameter[which(dataset$Artist == "Bear Canton")] <- 1
+add.constraint(proposal1,parameter, ">=",1)
+parameter <- rep(0,n)
+
+## At least one of the four pieces
+parameter[which(dataset$`Artist Piece` == "RL: Bnd" | dataset$`Artist Piece` == "RL: Who" | dataset$`Artist Piece` == "BR: Whr" | dataset$`Artist Piece` == "BR: Pnr")] <- 1
+add.constraint(proposal1,parameter, ">=",1)
+parameter <- rep(0,n)
+
+## At most 20 paintings chosen
+parameter[c(prp_index,cubist_index,expressionist_index,watercolor_index,oil_index)] <- 1
+add.constraint(proposal1,parameter, "<=",20)
+parameter <- rep(0,n)
+
+## At most 4 sculptures chosen
+parameter[c(wmsculpture_index,sculpture_index)] <- 1
+add.constraint(proposal1,parameter, "<=",20)
+parameter <- rep(0,n)
+
+## Display Reflection if Narcissism is displayed
+parameter[which(dataset$`Artist Piece` == "AO: Ref" )] <- 1
+parameter[which(dataset$`Artist Piece` == "RR: Nrc" )] <- -1
+add.constraint(proposal1,parameter, ">=",0)
+parameter <- rep(0,n)
+
+# Set decision variables as binary
+for (i in 1:n){
+set.type(proposal1,i,"binary")
+}
+```
+```{r include= FALSE}
+# Solve program 
+solve(proposal1)
+```
+
+```{r rows.print=15, echo = FALSE}
+# Have to re-enter obj fn to get Sens Ana table since cannot pull from model
+obj_fn <- rep(1,n)
+ps <- get.primal.solution(proposal1)
+ps_dev <- ps[(length(ps)-nrow(dataset)+1):length(ps)]
+
+# Create the output table for memo use
+prb1_tab <- dataset[c(which(ps_dev == 1)),c("Artist","Piece","Price in K","Art Form")]
+ov <- paste0(ps[1]," pieces are displayed. Total cost is $",ps[2],"K")
+kable(prb1_tab,align = 'c', caption = "Proposal 1 art selection")
+ov
+```
+
+Under this proposal, we are assuming a $4M budget from Mr. Forphartie. We used the BIP model to find out the maximum number of pieces we can display. The result is shown in the table above. We ended up picking **`r ps[1]`** pieces of arts and the total cost is **`r ps[2]`**K dollars.
+
+**Proposal 2: Minimum cost for at least 20 pieces selected**
+------------------------
+```{r include = FALSE}
+# Set up model
+proposal2 <- make.lp(0, n)
+
+# Set objective function
+set.objfn(proposal2, as.vector(dataset$Price))
+```
+```{r include = FALSE}
+# Set constraints
+## only 1 collage
+parameter[collage_index] <- 1
+add.constraint(proposal2,parameter, "=",1)
+parameter <- rep(0,n)
+
+## both wire mesh sculpture and cgd or neither of them
+parameter[cgd_index] <- -1
+parameter[wmsculpture_index[1]] <- 1
+add.constraint(proposal2,parameter,"<=",0)
+parameter[wmsculpture_index[1]] <- 0
+parameter[wmsculpture_index[2]] <- 1
+add.constraint(proposal2,parameter,"<=",0)
+parameter[wmsculpture_index[2]] <- 0
+parameter[wmsculpture_index[3]] <- 1
+add.constraint(proposal2,parameter,"<=",0)
+parameter[wmsculpture_index] <- -1
+parameter[cgd_index] <- 0
+parameter[cgd_index[1]] <- 1
+add.constraint(proposal2,parameter,"<=",0)
+parameter[cgd_index[1]] <- 0
+parameter[cgd_index[2]] <- 1
+add.constraint(proposal2,parameter,"<=",0)
+parameter <- rep(0,n)
+
+## at least 1 prp
+parameter[prp_index] <- 1
+add.constraint(proposal2,parameter, ">=",1)
+parameter <- rep(0,n)
+
+## at least 1 cubist
+parameter[cubist_index] <- 1
+add.constraint(proposal2,parameter, ">=",1)
+parameter <- rep(0,n)
+
+## at least 1 expressionist
+parameter[expressionist_index] <- 1
+add.constraint(proposal2,parameter, ">=",1)
+parameter <- rep(0,n)
+
+## at least 1 watercolor
+parameter[watercolor_index] <- 1
+add.constraint(proposal2,parameter, ">=",1)
+parameter <- rep(0,n)
+
+## at least 1 oil
+parameter[oil_index] <- 1
+add.constraint(proposal2,parameter, ">=",1)
+parameter <- rep(-2,n)
+
+## paintings no more than twice of other art forms
+parameter[c(prp_index,cubist_index,expressionist_index,watercolor_index,oil_index)] <- 1
+add.constraint(proposal2,parameter, "<=",0)
+parameter <- rep(0,n)
+
+## All Artie's paintings included
+parameter[which(dataset$Artist == "Artie Fophartie")] <- 1
+add.constraint(proposal2,parameter, "=",length(which(dataset$Artist == "Artie Fophartie")))
+parameter <- rep(0,n)
+
+## Both Helen Row's paintings included
+parameter[which(dataset$Artist == "Helen Row")] <- 1
+add.constraint(proposal2,parameter, "=",length(which(dataset$Artist == "Helen Row")))
+parameter <- rep(0,n)
+
+## At least 1 from David Lyman
+parameter[which(dataset$Artist == "David Lyman")] <- 1
+add.constraint(proposal2,parameter, ">=",1)
+parameter <- rep(0,n)
+
+## At least 1 from Ziggy Stardust
+parameter[which(dataset$Artist == "Ziggy Stardust")] <- 1
+add.constraint(proposal2,parameter, ">=",1)
+parameter <- rep(0,n)
+
+## Same amount from David and Ziggy
+parameter[which(dataset$Artist == "David Lyman")] <- 1
+parameter[which(dataset$Artist == "Ziggy Stardust")] <- -1
+add.constraint(proposal2,parameter, "=",0)
+parameter <- rep(0,n)
+
+## No arts from Rick Rawls
+parameter[which(dataset$Artist == "Rick Rawls")] <- 1
+add.constraint(proposal2,parameter, "=",0)
+parameter <- rep(-1,n)
+
+## At least one female art every two male arts
+parameter[which(dataset$Gender == "F")] <- 2
+add.constraint(proposal2,parameter, ">=",0)
+parameter <- rep(0,n)
+
+## Either or both "Aging Earth" and "Wasted Resources"
+parameter[which(dataset$`Artist Piece` == "NM: Age" | dataset$`Artist Piece` == "NM: Wst")] <- 1
+add.constraint(proposal2,parameter, ">=",1)
+parameter <- rep(0,n)
+
+## At least one from Bear Canton
+parameter[which(dataset$Artist == "Bear Canton")] <- 1
+add.constraint(proposal2,parameter, ">=",1)
+parameter <- rep(0,n)
+
+## At least one of the four pieces
+parameter[which(dataset$`Artist Piece` == "RL: Bnd" | dataset$`Artist Piece` == "RL: Who" | dataset$`Artist Piece` == "BR: Whr" | dataset$`Artist Piece` == "BR: Pnr")] <- 1
+add.constraint(proposal2,parameter, ">=",1)
+parameter <- rep(1,n)
+
+## At least 20 pieces chosen
+add.constraint(proposal2,parameter, ">=",20)
+parameter <- rep(0,n)
+
+## At most 20 paintings chosen
+parameter[c(prp_index,cubist_index,expressionist_index,watercolor_index,oil_index)] <- 1
+add.constraint(proposal2,parameter, "<=",20)
+parameter <- rep(0,n)
+
+## At most 4 sculptures chosen
+parameter[c(wmsculpture_index,sculpture_index)] <- 1
+add.constraint(proposal2,parameter, "<=",20)
+parameter <- rep(0,n)
+
+## Display Reflection if Narcissism is displayed
+parameter[which(dataset$`Artist Piece` == "AO: Ref" )] <- 1
+parameter[which(dataset$`Artist Piece` == "RR: Nrc" )] <- -1
+add.constraint(proposal2,parameter, ">=",0)
+parameter <- rep(0,n)
+
+# Set decision variables as binary
+for (i in 1:n){
+set.type(proposal2,i,"binary")
+}
+```
+
+```{r include = FALSE}
+#Solve program
+solve(proposal2)
+```
+
+```{r rows.print=20, echo = FALSE}
+# Have to re-enter obj fn to get Sens Ana table since cannot pull from model
+obj_fn <- rep(1,n)
+ps2 <- get.primal.solution(proposal2)
+ps_dev <- ps2[(length(ps2)-nrow(dataset)+1):length(ps2)]
+
+# Create the output table for memo use
+prb2_tab <- dataset[c(which(ps_dev == 1)),c("Artist","Piece","Price in K","Art Form")]
+ov <- paste0(nrow(prb2_tab)," pieces are displayed. Total cost is $",ps2[1],"K")
+kable(prb2_tab,align = 'c', caption = "Proposal 2 art selection")
+ov
+```
+
+`r ps[1]` pieces might not be enough to attract the attention of the public. After serious consideration, we are assuming it needs at least 20 pieces to make our exhibition a hit in the public. We plan to make this exhibition both a success and cost-saving so in this proposal, we figured out a way to display **`r ps2[1]`** pieces of arts with minimum cost. The **`r nrow(prb2_tab)`** pieces selected to display is shown in the above table. The total cost of this proposal will be **`r ps2[1]`**K dollars. 
+
+**Proposal 3: Price variation evaluation**
+-----------------------------
+
+```{r echo = FALSE}
+# Generate random multipliers
+set.seed(1234)
+y <- 1000 # number of simulations
+w <- runif(y,0.8,1.2)
+# Create empty vector to store results
+result <- vector()
+result_out <- vector()
+prb2_tab_2 <- vector()
+# Run for loop for simulation
+for (k in 1:y){ 
+price <- vector()
+for (i in 1:nrow(dataset)){
+  price[i] <- dataset[i,"Price in K"] * sample(w,1,replace = TRUE)
+}
+set.objfn(proposal2, price)
+solve(proposal2)
+result <- get.primal.solution(proposal2)
+result_price <- result[1]
+result_out <- rbind(result_out,result_price)
+}
+out_w <- round(rbind(mean(result_out), sd(result_out),max(result_out),min(result_out)), 2)
+rownames(out_w) <- c("mean","sd","max","min")
+colnames(out_w) <- c("Total Cost in K")
+kable(out_w,align = 'c', caption = "Price variation evaluation",table.attr = "style='width:10%;'")
+```
+
+We appreciate Mr. Artie's effort of putting all the pieces' information together but we are also aware that the price are subject to change. To estimate the impact of price change to our proposal 2, we generated this proposal 3 which is a summary of `r y` proposal 2 simulations. We set the range of the price change as ±20% of its original price with equal probability. As we can see from the result table above, the mean cost of the proposal 2 simulations is **`r out_w[1,1]`**K dollars, with a standard deviation of **`r out_w[2,1]`**K dollars. The average cost is actually slightly lower than `r ps2[1]`K dollars in proposal 2 so we can say that the price change more likely has a downside impact on the cost than an upside impact.

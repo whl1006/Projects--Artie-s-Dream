@@ -1,0 +1,455 @@
+---
+output: html_document
+---
+
+#### **To:** Seymore Butts 
+  
+#### **From:** Hanlin Wang 
+  
+#### **Date:** `r format(Sys.time(), '%B %d, %Y')`   
+  
+#### **RE:** In-process Inventory improvement recommendation 
+
+***
+
+```{r echo = FALSE}
+# Course: BUAN 5260
+# Title: Final Project--Artie's Dream Part 2
+# Purpose: Choose arts to exhibit under different scenarios
+# Date: June 3, 2018
+# Author: Hanlin Wang
+```
+
+```{r include = FALSE, warning = FALSE, message = FALSE}
+if(is.null(sessionInfo()$otherPkgs) == FALSE)lapply(
+  paste("package:", names(sessionInfo()$otherPkgs), sep=""), 
+  detach, character.only = TRUE, unload = TRUE)
+
+# Clear environment
+rm(list = ls(all = TRUE)) 
+
+# Load packages
+library(queueing)
+library(knitr)
+```
+
+**Status Quo**
+-------------------------------
+
++ Press Station
+
+```{r include = FALSE}
+# 7 arrivals per hour
+lam <- 7 
+
+# Service 1 per hour, 60 minutes per service
+mu <- 1
+
+# Cost of per sheet as in-process inventory
+p <- 8
+
+# Cost per server per hour
+cost <- 7
+
+# lam < c*mu in steady state, this will begin the loop with the necessary number of servers 
+i <- ceiling(lam/mu)
+
+# Max number of servers
+n <- i + 5
+```
+
+```{r echo = FALSE}
+# Create matrix to hold data
+qf <- vector()
+# Loop find low cost
+for (c in 8:n){
+  mdf <- NewInput.MMC(lam, mu, c)
+  mf <- QueueingModel.i_MMC(mdf)
+  # Mean number of customers in queue system
+  L <- mf$L
+  # Mean number of customers in queue
+  Lq <- mf$Lq
+  # Mean minutes wait time in queue system
+  W <- mf$W*60 
+  # Mean minutes wait time in queue waiting for service
+  Wq <- mf$Wq*60 
+  # Cost of in-process inventory
+  CL <- ifelse(L > 0, L*p, 0)
+  # Cost of servers
+  CS <- c*cost
+  # Organize in table
+  qf <- rbind(qf, round(c(c, L, CL, CS, CL + CS), 1))
+}
+colnames(qf) <- c("Press", "Inventory Level", "Inventory Cost", "Press Cost", "Total Cost")
+qf <- qf[which(qf == 10),]
+kable(t(qf),align = 'c', caption = "Press Station Status Quo Evaluation")
+```
+
++ Inspection STATION
+
+```{r include = FALSE}
+# 7 arrivals per hour
+lam <- 7 
+
+# Service 8 per hour, 7.5 minutes per service
+mu <- 8
+
+# Cost of per sheet as in-process inventory
+p <- 8
+
+# Cost per server per hour
+cost <- 17
+
+# lam < c*mu in steady state, this will begin the loop with the necessary number of servers 
+i <- ceiling(lam/mu)
+
+# Max number of servers
+n <- i + 5
+
+# Create matrix to hold data
+qf3 <- vector()
+
+```
+
+```{r echo = FALSE}
+# Loop find low cost
+for (c in i:n){
+  mdf <- NewInput.MMC(lam, mu, c)
+  mf <- QueueingModel.i_MMC(mdf)
+  # Mean number of customers in queue system
+  L <- mf$L  
+  # Mean number of customers in queue
+  Lq <- mf$Lq 
+  # Mean minutes wait time in queue system
+  W <- mf$W*60 
+  # Mean minutes wait time in queue waiting for service
+  Wq <- mf$Wq*60 
+  # Cost of lost customers
+  CL <- ifelse(L > 0, L*p, 0)
+  # Cost of servers
+  CS <- c*cost  
+  # Organize in table
+  qf3 <- rbind(qf3, round(c(c, L, CL, CS, CL + CS), 1))
+}
+colnames(qf3) <- c("Servers", "Inventory Level", "Inventory Cost", "Inspector Cost", "Total Cost")
+qf3 <- qf3[which(qf3 == 1),]
+kable(t(qf3),align = 'c',caption = "Inspection Station Status Quo Evaluation")
+```
+
+From the two tables above we can see that the expected amount of in-process inventory at the press station is **7.5** units for now and **7.0** units at the inspection station. The total cost per hour is **130.1** + **73.0** = **`r 130.1+73.0`** dollars.
+
+**Proposal 1: increase the average time to make a print**
+--------------------
+
+```{r include = FALSE}
+lam <- 7
+
+# 1.2 hrs per service
+mu <- 1/1.2
+
+# Cost of per sheet as in-process inventory
+p <- 8
+
+# Cost per server per hour
+cost <- 6.5
+i <- ceiling(lam/mu)
+n <- i+5
+```
+
+```{r echo = FALSE}
+# Create new vector to store result
+qf5 <- vector()
+for (c in i:n){
+  mdf <- NewInput.MMC(lam, mu, c)
+  mf <- QueueingModel.i_MMC(mdf)
+  # Mean number of customers in queue system
+  L <- mf$L  
+  # Mean number of customers in queue
+  Lq <- mf$Lq 
+  # Mean minutes wait time in queue system
+  W <- mf$W*60 
+  # Mean minutes wait time in queue waiting for service
+  Wq <- mf$Wq*60 
+  # Cost of lost customers
+  CL <- ifelse(L > 0, L*p, 0)
+  # Cost of servers
+  CS <- c*cost  
+  # Organize in table
+  qf5 <- rbind(qf5, round(c(c, L, CL, CS, CL + CS), 1))
+}
+colnames(qf5) <- c("Press", "Inventory Level", "Inventory Cost", "Press Cost", "Total Cost")
+qf5 <- qf5[which(qf5 == 10),]
+kable(t(qf5),align = 'c',caption = "Press Station Evaluation at 1.2 hrs/unit Service Rate")
+```
+
+From the table we can see that if we increase the average time to make a print from 1 hr to 1.2 hrs, the total cost will increase to **$153.4** from **$130.1** with 10 press working. This is because though increasing the average time to make a print reduces costs by **$0.5** per hour per press, with 10 press, the total cost reduction is **$5** only. However, due to the increasing time to make a print, the expected average in-process inventory at the press station will increase from **7.5** units to **11.0** units, which increases the inventory cost from **$60.1** to a very high **$88.4**. This just completely offset the cost cut from press operation.
+
+**Proposal 2: substitue a more experienced inspector**
+-------------------------------------
+
+```{r include = FALSE}
+# 7 arrivals per hour
+lam <- 7 
+
+# 7 minutes per service
+mu <- 60/7
+
+# Cost of per sheet as in-process inventory
+p <- 8
+
+# Cost per server per hour
+cost <- 19
+
+# lam < c*mu in steady state, this will begin the loop with the necessary number of servers 
+i <- ceiling(lam/mu)
+
+# Max number of servers
+n <- i + 5
+
+# Create matrix to hold data
+qf3 <- vector()
+```
+
+```{r echo = FALSE}
+# Loop find low cost
+for (c in i:n){
+  mdf <- NewInput.MMC(lam, mu, c)
+  mf <- QueueingModel.i_MMC(mdf)
+  # Mean number of customers in queue system
+  L <- mf$L  
+  # Mean number of customers in queue
+  Lq <- mf$Lq 
+  # Mean minutes wait time in queue system
+  W <- mf$W*60 
+  # Mean minutes wait time in queue waiting for service
+  Wq <- mf$Wq*60 
+  # Cost of lost customers
+  CL <- ifelse(L > 0, L*p, 0)
+  # Cost of servers
+  CS <- c*cost  
+  # Organize in table
+  qf3 <- rbind(qf3, round(c(c, L, CL, CS, CL + CS), 1))
+  
+}
+colnames(qf3) <- c("Inspectors", "Inventory Level", "Inventory Cost", "Inspector Cost", "Total Cost")
+qf3 <- qf3[which(qf3 == 1)[1],]
+kable(t(qf3),align = 'c', caption = "Inspection Station Evaluation at 7 minutes/unit")
+```
+
+The other proposal we have is to substitue a more experienced inspector for this task because we are aware that the inspection station is our bottleneck now. The inspector will be able to handle the tasks at 7 minutes/unit compared to 7.5 minutes/unit for the inspector. He will be paid 19 dollars/hour compared to 17 dollars/hour. As we can see from the table above, having a more experienced inspector will bring down the total cost of inspection station from **73** dollars/hour to **54.6** dollars/hour. This is mainly due to the reducing inventory levelfrom **7.0** units to **4.5** units, which reduced the inventory cost by **56.0-35.6 = 20.4** dollars/hour, a lot higher than the increased salary paid to the inspector.
+
+**In-process Inventory Improvement Recommendation**
+------------------------
+
+While evaluating proposal 4, we find out that the minimum cost of press station at the current service rate is to have 9 press working instead of 10. Thus, we would like to know how many press machines do we need to reach the possible minimum cost of each service rate. To carry out this evaluation, we assumed that for each 0.2 hr increase in service rate (as in proposal 1: 1.0 hr -> 1.2 hrs), the cost of running the press will decrease by 0.5 (as in proposal 1: 7.0 dollars/hour -> 6.5 dollars/hour)
+
+```{r echo = FALSE}
+# Create table to store outputs
+
+out <- vector()
+# Loop find low cost
+for (k in 1:18){
+  # 7 arrivals per hour
+lam <- 7 
+
+# Service 1/k per hour, k hours per service
+mu <- 1/(0.2*k)
+
+# Cost of per sheet as in-process inventory
+p <- 8
+
+# Cost per server per hour
+cost <- 7+(1-0.2*k)/0.2*0.5
+
+# lam < c*mu in steady state, this will begin the loop with the necessary number of servers 
+i <- ceiling(lam/mu)+1
+
+# Max number of servers
+n <- i + 10
+qf2 <- vector()
+
+for (c in i:n){
+  mdf <- NewInput.MMC(lam, mu, c)
+  mf <- QueueingModel.i_MMC(mdf)
+  # Mean number of customers in queue system
+  L <- mf$L  
+  # Mean number of customers in queue
+  Lq <- mf$Lq 
+  # Mean minutes wait time in queue system
+  W <- mf$W*60 
+  # Mean minutes wait time in queue waiting for service
+  Wq <- mf$Wq*60 
+  # Cost of lost customers
+  CL <- ifelse(L > 0, L*p, 0)
+  # Cost of servers
+  CS <- c*cost  
+  # Organize in table
+  qf2 <- rbind(qf2, round(c(c, mu,k*0.2,cost,L, Lq, W, Wq, CL, CS, CL + CS), 1))
+}
+min <- vector()
+min <- min(qf2[,10])
+out <- rbind(out,qf2[which(qf2[,10] == min),c(1,2,3,4,5,11)])
+}
+colnames(out) <- c("Press", "Service rate", "Hour per unit","Press Cost", "Inventory Level", "Total Cost")
+kable(out,align = 'c', caption = "Minimum Cost of Each Service Rate from 0.2 hr/unit to 3.6 hr/unit")
+```
+
+Above is the evaluation table of minimum cost of each service rate. Take the first row as an example, from left to right, **3** means we need only 3 presses to reach the minimum cost. **5.0** and **0.2** means 5.0 units per hour can be produced by each press, at the rate of 0.2 hrs/unit. **9.0** is the cost of operating one press at this service rate. **1.6** means the expected average in-process inventory we will have under this setting. **39.6** is the total cost per hour.
+
+As we can see, the lowest possible total cost we can reach is **39.6** with **3** press working at the rate of **0.2** hour/unit.
+
+If there are limitation on keeping 10 press, we also ran a evaluation on optimizing the cost for 10 press machines.
+
+```{r echo= FALSE}
+
+out <- vector()
+for (k in 1:7){
+lam <- 7 
+
+# Service 1/k per hour, k hours per service
+mu <- 1/(0.2*k)
+
+# Number of Press
+c <- 10
+
+# Cost of per sheet as in-process inventory
+p <- 8
+
+# Cost per server per hour
+cost <- 7+(1-0.2*k)/0.2*0.5
+
+qf2 <- vector()
+
+
+  mdf <- NewInput.MMC(lam, mu,10)
+  mf <- QueueingModel.i_MMC(mdf)
+  # Mean number of customers in queue system
+  L <- mf$L  
+  # Mean number of customers in queue
+  Lq <- mf$Lq 
+  # Mean minutes wait time in queue system
+  W <- mf$W*60 
+  # Mean minutes wait time in queue waiting for service
+  Wq <- mf$Wq*60 
+  # Cost of lost customers
+  CL <- ifelse(L > 0, L*p, 0)
+  # Cost of servers
+  CS <- c*cost  
+  # Organize in table
+  qf2 <- rbind(qf2, round(c(c, mu,k*0.2,cost,L, Lq, W, Wq, CL, CS, CL + CS), 1))
+min <- vector()
+min <- min(qf2[,10])
+out <- rbind(out,qf2[which(qf2[,10] == min),c(1,2,3,4,5,11)])
+}
+colnames(out) <- c("Press", "Service rate", "Hour per unit","Press Cost", "Inventory Level", "Total Cost")
+kable(out,align = 'c', caption = "Minimum Cost of Each Service Rate from 0.2 hr/unit to 1.4 hr/unit with 10 press")
+```
+
+From the table we can see that with 10 press machine, it's most cost effective to work at the rate of **0.2** hour/unit with the total cost at **101.2** dollars.
+
+I planned to do the similar evaluation for the inspection station but we will need more information on the relationship between the service rate and cost for the inspector. Thus we run a simple evaluation to determine how many inspectors we should have under the two known price/efficiency combination.
+
+```{r include = FALSE}
+# 7 arrivals per hour
+lam <- 7 
+
+# Service 8 per hour, 7.5 minutes per service
+mu <- 8
+
+# Cost of per sheet as in-process inventory
+p <- 8
+
+# Cost per server per hour
+cost <- 17
+
+# lam < c*mu in steady state, this will begin the loop with the necessary number of servers 
+i <- ceiling(lam/mu)
+
+# Max number of servers
+n <- i + 5
+
+# Create matrix to hold data
+qf3 <- vector()
+
+```
+
+```{r echo = FALSE}
+# Loop find low cost
+for (c in i:n){
+  mdf <- NewInput.MMC(lam, mu, c)
+  mf <- QueueingModel.i_MMC(mdf)
+  # Mean number of customers in queue system
+  L <- mf$L  
+  # Mean number of customers in queue
+  Lq <- mf$Lq 
+  # Mean minutes wait time in queue system
+  W <- mf$W*60 
+  # Mean minutes wait time in queue waiting for service
+  Wq <- mf$Wq*60 
+  # Cost of lost customers
+  CL <- ifelse(L > 0, L*p, 0)
+  # Cost of servers
+  CS <- c*cost  
+  # Organize in table
+  qf3 <- rbind(qf3, round(c(c, L, CL, CS, CL + CS), 1))
+}
+colnames(qf3) <- c("Servers", "Inventory Level", "Inventory Cost", "Inspector Cost", "Total Cost")
+kable(qf3,align = 'c',caption = "Inspection Station Evaluation at 7.5 minutes/unit")
+```
+
+```{r include = FALSE}
+# 7 arrivals per hour
+lam <- 7 
+
+# 7 minutes per service
+mu <- 60/7
+
+# Cost of per sheet as in-process inventory
+p <- 8
+
+# Cost per server per hour
+cost <- 19
+
+# lam < c*mu in steady state, this will begin the loop with the necessary number of servers 
+i <- ceiling(lam/mu)
+
+# Max number of servers
+n <- i + 5
+
+# Create matrix to hold data
+qf3 <- vector()
+```
+
+```{r echo = FALSE}
+# Loop find low cost
+for (c in i:n){
+  mdf <- NewInput.MMC(lam, mu, c)
+  mf <- QueueingModel.i_MMC(mdf)
+  # Mean number of customers in queue system
+  L <- mf$L  
+  # Mean number of customers in queue
+  Lq <- mf$Lq 
+  # Mean minutes wait time in queue system
+  W <- mf$W*60 
+  # Mean minutes wait time in queue waiting for service
+  Wq <- mf$Wq*60 
+  # Cost of lost customers
+  CL <- ifelse(L > 0, L*p, 0)
+  # Cost of servers
+  CS <- c*cost  
+  # Organize in table
+  qf3 <- rbind(qf3, round(c(c, L, CL, CS, CL + CS), 1))
+  
+}
+colnames(qf3) <- c("Inspectors", "Inventory Level", "Inventory Cost", "Inspector Cost", "Total Cost")
+kable(qf3,align = 'c', caption = "Inspection Station Evaluation at 7 minutes/unit")
+```
+
+Based on the information we have, we can see from the tables above that increasing the inspectors to **2** will significantly reduce the total cost no matter they are working at **7.5** minuts/unit or **7** minuts/unit. The minimum cost for the inspection station is to have **2** inspectors at **17** dollars/hour. It's because although having another inspector reduces total cost by dropping the inventory level, there isn't significant difference between **1.1** unit for 2 inspectors of 17 dollars/hour and **1.0** unit for 2 inspectors of 19 dollars/hour. Thus, it's more cost-efficient to have 2 cheaper inspectors.
+
+**Summary**
+--------------------
+
+Overall, to reduce the average level of in-process inventory, I recommend to have **3** press working at **0.2** hour/unit and have **2** inspectors at **17** dollars/hour. This will reduced the total cost from **130.1+73=203.1** to **39.6+42.7=82.3**. The in-process inventory will be reduced from **7.5+7=14.5** to **1.6+1.1=2.7**.
+
+However, if it's required to have **10** press working at the press station, I would recommend not to change the press to working at **1.2** hour/unit because it increases the total cost for the press station but change the service rate to **0.2** hour/unit and hire another inspector at **17** dollars/unit.
